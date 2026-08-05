@@ -5,7 +5,8 @@ import {
   signInWithEmailAndPassword, 
   signOut,
   sendPasswordResetEmail,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  updateProfile
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -18,6 +19,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
+  const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
   const [loading, setLoading] = useState(true);
   
   // Use a ref to prevent onAuthStateChanged from doing duplicate Firestore fetches 
@@ -29,11 +31,15 @@ export const AuthProvider = ({ children }) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
     let role = 'student';
+    let name = userCredential.user.displayName || '';
     if (userDoc.exists()) {
-      role = userDoc.data().role;
+      role = userDoc.data().role || 'student';
+      if (userDoc.data().name) name = userDoc.data().name;
     }
     setUserRole(role);
+    setUserName(name);
     localStorage.setItem('userRole', role);
+    localStorage.setItem('userName', name);
     isAuthActionInProgress.current = false;
     return role;
   };
@@ -43,8 +49,16 @@ export const AuthProvider = ({ children }) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
+    try {
+      await updateProfile(user, { displayName: name });
+    } catch (e) {
+      console.error("Error updating profile displayName:", e);
+    }
+
     setUserRole(role);
+    setUserName(name);
     localStorage.setItem('userRole', role);
+    localStorage.setItem('userName', name);
 
     // Asynchronous background firestore profile creation (non-blocking)
     setDoc(doc(db, 'users', user.uid), {
@@ -77,8 +91,11 @@ export const AuthProvider = ({ children }) => {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
               const role = userDoc.data().role;
+              const name = user.displayName || userDoc.data().name || '';
               setUserRole(role);
+              setUserName(name);
               localStorage.setItem('userRole', role);
+              localStorage.setItem('userName', name);
             } else {
               setUserRole('student');
               localStorage.setItem('userRole', 'student');
@@ -90,7 +107,9 @@ export const AuthProvider = ({ children }) => {
         }
       } else {
         setUserRole(null);
+        setUserName('');
         localStorage.removeItem('userRole');
+        localStorage.removeItem('userName');
       }
       setCurrentUser(user);
       setLoading(false);
@@ -102,6 +121,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     userRole,
+    userName,
     login,
     register,
     logout,

@@ -11,7 +11,7 @@ const IllRegister = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedReportForPrint, setSelectedReportForPrint] = useState(null);
-  const { currentUser } = useAuth();
+  const { currentUser, userName } = useAuth();
 
   // Form State
   const [symptoms, setSymptoms] = useState([]);
@@ -21,6 +21,16 @@ const IllRegister = () => {
   const [details, setDetails] = useState('');
 
   const availableSymptoms = ['Fever', 'Cough', 'Headache', 'Stomach ache', 'Body pain', 'Vomiting'];
+
+  const getCleanStudentName = () => {
+    if (userName && !userName.includes('@')) return userName;
+    if (currentUser?.displayName && !currentUser.displayName.includes('@')) return currentUser.displayName;
+    if (currentUser?.email) {
+      const part = currentUser.email.split('@')[0];
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    }
+    return 'Student';
+  };
 
   const fetchReports = useCallback(async () => {
     if (!currentUser) return;
@@ -58,11 +68,12 @@ const IllRegister = () => {
       return toast.error('Please provide symptoms, date, course details, and classes missed');
     }
 
+    const studentName = getCleanStudentName();
     const tempId = 'temp-' + Date.now();
     const newReport = {
       id: tempId,
       studentId: currentUser.uid,
-      studentName: currentUser.displayName || currentUser.email,
+      studentName: studentName,
       symptoms: symptoms.join(', '),
       date,
       courseDetails,
@@ -131,6 +142,13 @@ const IllRegister = () => {
       default:
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{status}</span>;
     }
+  };
+
+  const formatDisplayName = (name) => {
+    if (!name || name.includes('@')) {
+      return getCleanStudentName();
+    }
+    return name;
   };
 
   return (
@@ -299,10 +317,10 @@ const IllRegister = () => {
 
       {/* Printable Medical Leave Certificate Modal */}
       {selectedReportForPrint && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:p-0 print:static print:bg-white print:z-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 relative print:shadow-none print:w-full print:max-w-none print:p-0 print:border-none">
-            {/* Control Bar (hidden when printing) */}
-            <div className="flex justify-between items-center pb-6 border-b border-gray-200 print:hidden">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:p-0 print:static print:bg-white print:z-auto overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full my-auto max-h-[90vh] flex flex-col relative print:shadow-none print:w-full print:max-w-none print:p-0 print:border-none print:max-h-none overflow-hidden">
+            {/* Control Bar (Sticky Top) */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 bg-white sticky top-0 z-10 print:hidden shrink-0">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Medical Leave Approval Certificate</h3>
                 <p className="text-xs text-gray-500">Ready for official printing and presentation.</p>
@@ -323,8 +341,8 @@ const IllRegister = () => {
               </div>
             </div>
 
-            {/* Official Printable Certificate Document */}
-            <div className="py-6 print:py-0 space-y-6">
+            {/* Printable Certificate Document Body */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-6 print:p-0 print:overflow-visible">
               {/* Institution Header */}
               <div className="text-center border-b pb-6 border-gray-200">
                 <div className="flex items-center justify-center gap-3 mb-2">
@@ -345,7 +363,7 @@ const IllRegister = () => {
                 <p className="font-bold text-gray-900 uppercase text-xs tracking-wider">TO WHOM IT MAY CONCERN,</p>
                 
                 <p>
-                  This is to certify that student <span className="font-bold text-gray-900 underline decoration-primary underline-offset-2">{selectedReportForPrint.studentName}</span> (ID: <span className="font-mono text-gray-900 font-bold">{selectedReportForPrint.studentId?.substring(0, 8).toUpperCase()}</span>) of <span className="font-bold text-gray-900">{selectedReportForPrint.courseDetails || 'Campus Program'}</span> has been officially evaluated by the Campus Health Services.
+                  This is to certify that student <span className="font-bold text-gray-900 underline decoration-primary underline-offset-2">{formatDisplayName(selectedReportForPrint.studentName)}</span> (ID: <span className="font-mono text-gray-900 font-bold">{selectedReportForPrint.studentId?.substring(0, 8).toUpperCase()}</span>) of <span className="font-bold text-gray-900">{selectedReportForPrint.courseDetails || 'Campus Program'}</span> has been officially evaluated by the Campus Health Services.
                 </p>
 
                 <div className="bg-gray-50/80 rounded-xl p-4 border border-gray-200 space-y-3 my-2">
