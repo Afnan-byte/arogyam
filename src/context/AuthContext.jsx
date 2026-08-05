@@ -43,17 +43,18 @@ export const AuthProvider = ({ children }) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
-    // Create user document in Firestore
-    await setDoc(doc(db, 'users', user.uid), {
+    setUserRole(role);
+    localStorage.setItem('userRole', role);
+
+    // Asynchronous background firestore profile creation (non-blocking)
+    setDoc(doc(db, 'users', user.uid), {
       uid: user.uid,
       email: user.email,
       role: role,
       name: name,
       createdAt: new Date().toISOString()
-    });
+    }).catch(err => console.error("Background setDoc error:", err));
     
-    setUserRole(role);
-    localStorage.setItem('userRole', role);
     isAuthActionInProgress.current = false;
     return userCredential;
   };

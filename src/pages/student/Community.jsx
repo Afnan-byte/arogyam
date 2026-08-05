@@ -40,40 +40,58 @@ const Community = () => {
     e.preventDefault();
     if (!title || !content) return toast.error('Fill all fields');
 
-    setSubmitting(true);
+    const tempId = 'temp-' + Date.now();
+    const newPost = {
+      id: tempId,
+      authorId: currentUser.uid,
+      author: currentUser.displayName || currentUser.email || 'Anonymous',
+      authorRole: userRole,
+      title,
+      content,
+      likes: 0,
+      comments: 0,
+      tags: [],
+      createdAt: new Date().toISOString()
+    };
+
+    // Instant optimistic update
+    setPosts(prev => [newPost, ...prev]);
+    setShowPostForm(false);
+    setTitle('');
+    setContent('');
+    toast.success('Post published!');
+
     try {
-      await addDoc(collection(db, 'community_posts'), {
-        authorId: currentUser.uid,
-        author: currentUser.displayName || currentUser.email || 'Anonymous',
-        authorRole: userRole,
-        title,
-        content,
-        likes: 0,
-        comments: 0,
-        tags: [],
-        createdAt: new Date().toISOString()
+      const docRef = await addDoc(collection(db, 'community_posts'), {
+        authorId: newPost.authorId,
+        author: newPost.author,
+        authorRole: newPost.authorRole,
+        title: newPost.title,
+        content: newPost.content,
+        likes: newPost.likes,
+        comments: newPost.comments,
+        tags: newPost.tags,
+        createdAt: newPost.createdAt
       });
-      toast.success('Post published!');
-      setShowPostForm(false);
-      setTitle('');
-      setContent('');
-      fetchPosts();
+      setPosts(prev => prev.map(p => p.id === tempId ? { ...p, id: docRef.id } : p));
     } catch (error) {
       console.error(error);
       toast.error('Failed to publish post');
-    } finally {
-      setSubmitting(false);
+      setPosts(prev => prev.filter(p => p.id !== tempId));
     }
   };
 
   const handleLike = async (post) => {
+    // Instant optimistic update
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, likes: (p.likes || 0) + 1 } : p));
     try {
       await updateDoc(doc(db, 'community_posts', post.id), {
-        likes: post.likes + 1
+        likes: (post.likes || 0) + 1
       });
-      fetchPosts();
     } catch (error) {
       console.error(error);
+      // Revert optimistic like
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, likes: post.likes } : p));
     }
   };
 

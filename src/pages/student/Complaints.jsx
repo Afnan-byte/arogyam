@@ -48,27 +48,42 @@ const Complaints = () => {
     e.preventDefault();
     if (!category || !location || !description) return toast.error('Please fill all required fields');
     
-    setSubmitting(true);
+    const tempId = 'temp-' + Date.now();
+    const newComplaint = {
+      id: tempId,
+      studentId: currentUser.uid,
+      reportedBy: currentUser.email,
+      category,
+      location,
+      description,
+      status: 'Pending',
+      date: new Date().toISOString()
+    };
+
+    // Instant optimistic update
+    setComplaints(prev => [newComplaint, ...prev]);
+    setShowForm(false);
+    setCategory('');
+    setLocation('');
+    setDescription('');
+    toast.success('Complaint submitted successfully!');
+
+    // Async background sync
     try {
-      await addDoc(collection(db, 'complaints'), {
-        studentId: currentUser.uid,
-        reportedBy: currentUser.email,
-        category,
-        location,
-        description,
-        status: 'Pending',
-        date: new Date().toISOString()
+      const docRef = await addDoc(collection(db, 'complaints'), {
+        studentId: newComplaint.studentId,
+        reportedBy: newComplaint.reportedBy,
+        category: newComplaint.category,
+        location: newComplaint.location,
+        description: newComplaint.description,
+        status: newComplaint.status,
+        date: newComplaint.date
       });
-      toast.success('Complaint submitted successfully');
-      setShowForm(false);
-      setCategory('');
-      setLocation('');
-      setDescription('');
-      fetchComplaints();
+      setComplaints(prev => prev.map(c => c.id === tempId ? { ...c, id: docRef.id } : c));
     } catch (error) {
-      toast.error('Failed to submit complaint');
-    } finally {
-      setSubmitting(false);
+      console.error(error);
+      toast.error('Failed to sync complaint to cloud');
+      setComplaints(prev => prev.filter(c => c.id !== tempId));
     }
   };
 

@@ -53,29 +53,45 @@ const IllRegister = () => {
     e.preventDefault();
     if (symptoms.length === 0 || !date) return toast.error('Please provide symptoms and date of onset');
 
-    setSubmitting(true);
+    const tempId = 'temp-' + Date.now();
+    const newReport = {
+      id: tempId,
+      studentId: currentUser.uid,
+      studentName: currentUser.displayName || currentUser.email,
+      symptoms: symptoms.join(', '),
+      date,
+      details,
+      status: 'Pending',
+      doctor: 'Unassigned',
+      createdAt: new Date().toISOString()
+    };
+
+    // Instant optimistic update
+    setReports(prev => [newReport, ...prev]);
+    setShowForm(false);
+    setSymptoms([]);
+    setDate('');
+    setDetails('');
+    toast.success('Illness report submitted!');
+
+    // Async background sync
     try {
-      await addDoc(collection(db, 'illness_reports'), {
-        studentId: currentUser.uid,
-        studentName: currentUser.displayName || currentUser.email,
-        symptoms: symptoms.join(', '),
-        date,
-        details,
-        status: 'Pending',
-        doctor: 'Unassigned',
-        createdAt: new Date().toISOString()
+      const docRef = await addDoc(collection(db, 'illness_reports'), {
+        studentId: newReport.studentId,
+        studentName: newReport.studentName,
+        symptoms: newReport.symptoms,
+        date: newReport.date,
+        details: newReport.details,
+        status: newReport.status,
+        doctor: newReport.doctor,
+        createdAt: newReport.createdAt
       });
-      toast.success('Illness report submitted');
-      setShowForm(false);
-      setSymptoms([]);
-      setDate('');
-      setDetails('');
-      fetchReports();
+      // Replace tempId with actual firestore ID silently
+      setReports(prev => prev.map(r => r.id === tempId ? { ...r, id: docRef.id } : r));
     } catch (error) {
       console.error(error);
-      toast.error('Failed to submit report');
-    } finally {
-      setSubmitting(false);
+      toast.error('Cloud sync failed. Reverting report.');
+      setReports(prev => prev.filter(r => r.id !== tempId));
     }
   };
 

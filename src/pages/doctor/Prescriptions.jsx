@@ -55,27 +55,41 @@ const Prescriptions = () => {
     e.preventDefault();
     if (!patientName || !diagnosis) return toast.error('Please fill patient name and diagnosis');
 
-    setSubmitting(true);
+    const tempId = 'temp-' + Date.now();
+    const newPrescription = {
+      id: tempId,
+      doctorId: currentUser.uid,
+      patientName,
+      diagnosis,
+      medications,
+      instructions,
+      date: new Date().toISOString()
+    };
+
+    // Instant optimistic update
+    setPrescriptions(prev => [newPrescription, ...prev]);
+    setShowForm(false);
+    setPatientName('');
+    setDiagnosis('');
+    setMedications([{ name: '', dosage: '', frequency: '' }]);
+    setInstructions('');
+    toast.success('Prescription issued successfully!');
+
+    // Async background sync
     try {
-      await addDoc(collection(db, 'prescriptions'), {
-        doctorId: currentUser.uid,
-        patientName,
-        diagnosis,
-        medications,
-        instructions,
-        date: new Date().toISOString()
+      const docRef = await addDoc(collection(db, 'prescriptions'), {
+        doctorId: newPrescription.doctorId,
+        patientName: newPrescription.patientName,
+        diagnosis: newPrescription.diagnosis,
+        medications: newPrescription.medications,
+        instructions: newPrescription.instructions,
+        date: newPrescription.date
       });
-      toast.success('Prescription issued successfully');
-      setShowForm(false);
-      setPatientName('');
-      setDiagnosis('');
-      setMedications([{ name: '', dosage: '', frequency: '' }]);
-      setInstructions('');
-      fetchPrescriptions();
+      setPrescriptions(prev => prev.map(p => p.id === tempId ? { ...p, id: docRef.id } : p));
     } catch (error) {
-      toast.error('Failed to issue prescription');
-    } finally {
-      setSubmitting(false);
+      console.error(error);
+      toast.error('Failed to sync prescription to cloud');
+      setPrescriptions(prev => prev.filter(p => p.id !== tempId));
     }
   };
 

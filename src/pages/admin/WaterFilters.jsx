@@ -42,26 +42,40 @@ const WaterFilters = () => {
     e.preventDefault();
     if (!filterId || !location || !initialDate) return toast.error('Please fill all fields');
     
-    setSubmitting(true);
+    const tempId = 'temp-' + Date.now();
+    const newFilter = {
+      id: tempId,
+      filterId,
+      location,
+      lastCleaned: initialDate,
+      nextCleaning: calculateNextDate(initialDate, cycleDays),
+      cycleDays: Number(cycleDays),
+      status: 'Clean'
+    };
+
+    // Instant optimistic update
+    setFilters(prev => [newFilter, ...prev]);
+    setShowForm(false);
+    setFilterId('');
+    setLocation('');
+    setInitialDate('');
+    toast.success('Water filter added!');
+
+    // Async background sync
     try {
-      await addDoc(collection(db, 'water_filters'), {
-        filterId,
-        location,
-        lastCleaned: initialDate,
-        nextCleaning: calculateNextDate(initialDate, cycleDays),
-        cycleDays: Number(cycleDays),
-        status: 'Clean'
+      const docRef = await addDoc(collection(db, 'water_filters'), {
+        filterId: newFilter.filterId,
+        location: newFilter.location,
+        lastCleaned: newFilter.lastCleaned,
+        nextCleaning: newFilter.nextCleaning,
+        cycleDays: newFilter.cycleDays,
+        status: newFilter.status
       });
-      toast.success('Water filter added');
-      setShowForm(false);
-      setFilterId('');
-      setLocation('');
-      setInitialDate('');
-      fetchFilters();
+      setFilters(prev => prev.map(f => f.id === tempId ? { ...f, id: docRef.id } : f));
     } catch (error) {
-      toast.error('Failed to add filter');
-    } finally {
-      setSubmitting(false);
+      console.error(error);
+      toast.error('Failed to sync filter to cloud');
+      setFilters(prev => prev.filter(f => f.id !== tempId));
     }
   };
 
@@ -72,34 +86,45 @@ const WaterFilters = () => {
   };
 
   const logCleaning = async (id, currentCycleDays) => {
-    setSubmittingId(id);
+    const today = new Date().toISOString().split('T')[0];
+    const nextClean = calculateNextDate(today, currentCycleDays);
+
+    // Instant optimistic update
+    const previousFilters = [...filters];
+    setFilters(prev => prev.map(f => f.id === id ? {
+      ...f,
+      lastCleaned: today,
+      nextCleaning: nextClean,
+      status: 'Clean'
+    } : f));
+    toast.success('Cleaning logged successfully');
+
     try {
-      const today = new Date().toISOString().split('T')[0];
       await updateDoc(doc(db, 'water_filters', id), {
         lastCleaned: today,
-        nextCleaning: calculateNextDate(today, currentCycleDays),
+        nextCleaning: nextClean,
         status: 'Clean'
       });
-      toast.success('Cleaning logged successfully');
-      fetchFilters();
     } catch (error) {
-      toast.error('Failed to log cleaning');
-    } finally {
-      setSubmittingId(null);
+      console.error(error);
+      toast.error('Failed to sync cleaning log');
+      setFilters(previousFilters);
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('Remove this filter?')) {
-      setSubmittingId(`delete-${id}`);
+      const previousFilters = [...filters];
+      // Instant optimistic removal
+      setFilters(prev => prev.filter(f => f.id !== id));
+      toast.success('Filter removed');
+
       try {
         await deleteDoc(doc(db, 'water_filters', id));
-        toast.success('Filter removed');
-        fetchFilters();
       } catch (error) {
-        toast.error('Failed to remove filter');
-      } finally {
-        setSubmittingId(null);
+        console.error(error);
+        toast.error('Failed to remove filter from cloud');
+        setFilters(previousFilters);
       }
     }
   };

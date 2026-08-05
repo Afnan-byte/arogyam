@@ -57,7 +57,9 @@ const HealthProfile = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
+    toast.success('Health profile updated successfully!');
+    setSaving(false);
+
     try {
       await setDoc(doc(db, 'health_profiles', currentUser.uid), {
         fullName,
@@ -72,12 +74,9 @@ const HealthProfile = () => {
         phone,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      toast.success('Health profile updated successfully');
     } catch (error) {
       console.error(error);
-      toast.error('Failed to update profile');
-    } finally {
-      setSaving(false);
+      toast.error('Failed to sync profile changes with cloud');
     }
   };
 
