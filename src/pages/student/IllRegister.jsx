@@ -34,17 +34,46 @@ const IllRegister = () => {
 
   const fetchReports = useCallback(async () => {
     if (!currentUser) return;
-    setLoading(true);
+    
+    // Load local cache immediately to prevent vanishing on refresh
+    const cacheKey = 'arogyam_illness_reports_' + currentUser.uid;
+    const cachedData = localStorage.getItem(cacheKey);
+    if (cachedData) {
+      try {
+        setReports(JSON.parse(cachedData));
+        setLoading(false);
+      } catch (e) {
+        console.error("Cache parse error", e);
+      }
+    } else {
+      setLoading(true);
+    }
+
     try {
       const q = query(collection(db, 'illness_reports'), where('studentId', '==', currentUser.uid));
       const snapshot = await getDocs(q);
-      const data = [];
+      let data = [];
       snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
-      data.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      // Fallback: search by studentName / email if studentId query yields 0
+      if (data.length === 0 && currentUser.email) {
+        try {
+          const qFallback = query(collection(db, 'illness_reports'), where('studentName', '==', currentUser.email));
+          const snapshotFallback = await getDocs(qFallback);
+          snapshotFallback.forEach(doc => {
+            if (!data.some(d => d.id === doc.id)) data.push({ id: doc.id, ...doc.data() });
+          });
+        } catch (err) {
+          console.error("Fallback query error", err);
+        }
+      }
+
+      data.sort((a, b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
       setReports(data);
+      localStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (error) {
       console.error(error);
-      toast.error('Failed to load reports');
+      if (!cachedData) toast.error('Failed to load reports from cloud');
     } finally {
       setLoading(false);
     }
@@ -84,8 +113,12 @@ const IllRegister = () => {
       createdAt: new Date().toISOString()
     };
 
-    // Instant optimistic update
-    setReports(prev => [newReport, ...prev]);
+    // Instant optimistic update + cache
+    const cacheKey = 'arogyam_illness_reports_' + currentUser.uid;
+    const updatedReports = [newReport, ...reports];
+    setReports(updatedReports);
+    localStorage.setItem(cacheKey, JSON.stringify(updatedReports));
+
     setShowForm(false);
     setSymptoms([]);
     setDate('');
@@ -109,27 +142,19 @@ const IllRegister = () => {
         createdAt: newReport.createdAt
       });
       // Replace tempId with actual firestore ID silently
-      setReports(prev => prev.map(r => r.id === tempId ? { ...r, id: docRef.id } : r));
+      setReports(prev => {
+        const synced = prev.map(r => r.id === tempId ? { ...r, id: docRef.id } : r);
+        localStorage.setItem(cacheKey, JSON.stringify(synced));
+        return synced;
+      });
     } catch (error) {
       console.error(error);
       toast.error('Cloud sync failed. Reverting report.');
-      setReports(prev => prev.filter(r => r.id !== tempId));
-    }
-  };
-
-  // Demo helper to allow approving pending reports directly for previewing
-  const handleApproveReport = async (reportId) => {
-    setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'Approved', doctor: 'Dr. Smith (CMO)' } : r));
-    toast.success('Report marked as Approved!');
-    try {
-      if (!reportId.startsWith('temp-')) {
-        await updateDoc(doc(db, 'illness_reports', reportId), {
-          status: 'Approved',
-          doctor: 'Dr. Smith (CMO)'
-        });
-      }
-    } catch (error) {
-      console.error(error);
+      setReports(prev => {
+        const reverted = prev.filter(r => r.id !== tempId);
+        localStorage.setItem(cacheKey, JSON.stringify(reverted));
+        return reverted;
+      });
     }
   };
 
@@ -295,16 +320,9 @@ const IllRegister = () => {
                           <Printer className="w-3.5 h-3.5 mr-1" /> Print Certificate
                         </button>
                       ) : (
-                        <div className="inline-flex items-center gap-2">
-                          <span className="text-xs text-gray-400 italic">Pending Approval</span>
-                          <button
-                            onClick={() => handleApproveReport(report.id)}
-                            title="Quick Test: Click to simulate doctor approval"
-                            className="text-xs text-blue-600 hover:underline border border-blue-200 px-2 py-0.5 rounded bg-blue-50"
-                          >
-                            Approve (Test)
-                          </button>
-                        </div>
+                        <span className="text-xs text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md font-medium border border-amber-200/80">
+                          Awaiting Doctor Review
+                        </span>
                       )}
                     </td>
                   </tr>
