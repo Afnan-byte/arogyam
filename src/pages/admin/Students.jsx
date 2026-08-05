@@ -8,6 +8,7 @@ const Students = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submittingId, setSubmittingId] = useState(null);
 
   useEffect(() => {
     fetchStudents();
@@ -33,12 +34,15 @@ const Students = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this student?')) {
+      setSubmittingId(id);
       try {
         await deleteDoc(doc(db, 'users', id));
         toast.success('Student deleted successfully');
         fetchStudents();
       } catch (error) {
         toast.error('Failed to delete student');
+      } finally {
+        setSubmittingId(null);
       }
     }
   };
@@ -114,8 +118,12 @@ const Students = () => {
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => handleDelete(student.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
-                          <Trash className="w-4 h-4" />
+                        <button 
+                          onClick={() => handleDelete(student.id)} 
+                          disabled={submittingId === student.id}
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {submittingId === student.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash className="w-4 h-4" />}
                         </button>
                       </div>
                     </td>

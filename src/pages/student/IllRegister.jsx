@@ -9,6 +9,7 @@ const IllRegister = () => {
   const [showForm, setShowForm] = useState(false);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const { currentUser } = useAuth();
 
   // Form State
@@ -53,6 +54,7 @@ const IllRegister = () => {
     e.preventDefault();
     if (symptoms.length === 0 || !date) return toast.error('Please provide symptoms and date of onset');
 
+    setSubmitting(true);
     try {
       await addDoc(collection(db, 'illness_reports'), {
         studentId: currentUser.uid,
@@ -72,6 +74,8 @@ const IllRegister = () => {
       fetchReports();
     } catch (error) {
       toast.error('Failed to submit report');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -88,7 +92,7 @@ const IllRegister = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Ill Register</h1>
           <p className="text-gray-500 mt-1">Report illness to campus health center and apply for medical leave.</p>
@@ -137,7 +141,12 @@ const IllRegister = () => {
             </div>
 
             <div className="flex justify-end pt-4 border-t border-gray-100">
-              <button type="submit" className="bg-primary hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">
+              <button 
+                type="submit" 
+                disabled={submitting || symptoms.length === 0 || !date}
+                className="bg-primary hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Submit Report
               </button>
             </div>

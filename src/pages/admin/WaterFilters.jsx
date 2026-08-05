@@ -8,6 +8,8 @@ const WaterFilters = () => {
   const [showForm, setShowForm] = useState(false);
   const [filters, setFilters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submittingId, setSubmittingId] = useState(null);
   
   // Form State
   const [filterId, setFilterId] = useState('');
@@ -40,6 +42,7 @@ const WaterFilters = () => {
     e.preventDefault();
     if (!filterId || !location || !initialDate) return toast.error('Please fill all fields');
     
+    setSubmitting(true);
     try {
       await addDoc(collection(db, 'water_filters'), {
         filterId,
@@ -57,6 +60,8 @@ const WaterFilters = () => {
       fetchFilters();
     } catch (error) {
       toast.error('Failed to add filter');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -67,6 +72,7 @@ const WaterFilters = () => {
   };
 
   const logCleaning = async (id, currentCycleDays) => {
+    setSubmittingId(id);
     try {
       const today = new Date().toISOString().split('T')[0];
       await updateDoc(doc(db, 'water_filters', id), {
@@ -78,17 +84,22 @@ const WaterFilters = () => {
       fetchFilters();
     } catch (error) {
       toast.error('Failed to log cleaning');
+    } finally {
+      setSubmittingId(null);
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('Remove this filter?')) {
+      setSubmittingId(`delete-${id}`);
       try {
         await deleteDoc(doc(db, 'water_filters', id));
         toast.success('Filter removed');
         fetchFilters();
       } catch (error) {
         toast.error('Failed to remove filter');
+      } finally {
+        setSubmittingId(null);
       }
     }
   };
@@ -136,7 +147,12 @@ const WaterFilters = () => {
               </div>
             </div>
             <div className="flex justify-end pt-4">
-              <button type="submit" className="bg-primary hover:bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">
+              <button 
+                type="submit" 
+                disabled={submitting || !filterId || !location || !initialDate}
+                className="bg-primary hover:bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Save Filter
               </button>
             </div>
@@ -189,11 +205,20 @@ const WaterFilters = () => {
                         </span>
                       </td>
                       <td className="py-4 px-6 text-right whitespace-nowrap">
-                        <button onClick={() => logCleaning(filter.id, filter.cycleDays)} className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded text-xs font-medium hover:bg-gray-50 mr-2 transition-colors">
+                        <button 
+                          onClick={() => logCleaning(filter.id, filter.cycleDays)} 
+                          disabled={submittingId === filter.id || submittingId === `delete-${filter.id}`}
+                          className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded text-xs font-medium hover:bg-gray-50 mr-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
+                        >
+                          {submittingId === filter.id && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
                           Log Cleaning
                         </button>
-                        <button onClick={() => handleDelete(filter.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1 align-middle inline-block">
-                          <Trash className="w-4 h-4" />
+                        <button 
+                          onClick={() => handleDelete(filter.id)} 
+                          disabled={submittingId === filter.id || submittingId === `delete-${filter.id}`}
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1 align-middle inline-flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {submittingId === `delete-${filter.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash className="w-4 h-4" />}
                         </button>
                       </td>
                     </tr>

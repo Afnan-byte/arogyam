@@ -8,6 +8,7 @@ const Doctors = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submittingId, setSubmittingId] = useState(null);
 
   useEffect(() => {
     fetchDoctors();
@@ -32,13 +33,16 @@ const Doctors = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to remove this doctor?')) {
+    if (window.confirm('Are you sure you want to delete this doctor?')) {
+      setSubmittingId(id);
       try {
         await deleteDoc(doc(db, 'users', id));
         toast.success('Doctor removed successfully');
         fetchDoctors();
       } catch (error) {
-        toast.error('Failed to remove doctor');
+        toast.error('Failed to delete doctor');
+      } finally {
+        setSubmittingId(null);
       }
     }
   };
@@ -114,8 +118,12 @@ const Doctors = () => {
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => handleDelete(doctor.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
-                          <Trash className="w-4 h-4" />
+                        <button 
+                          onClick={() => handleDelete(doctor.id)} 
+                          disabled={submittingId === doctor.id}
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {submittingId === doctor.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash className="w-4 h-4" />}
                         </button>
                       </div>
                     </td>

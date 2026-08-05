@@ -9,6 +9,7 @@ const Appointments = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submittingId, setSubmittingId] = useState(null);
   const { currentUser } = useAuth();
 
   useEffect(() => {
@@ -42,12 +43,15 @@ const Appointments = () => {
   };
 
   const updateStatus = async (id, newStatus) => {
+    setSubmittingId(id);
     try {
       await updateDoc(doc(db, 'appointments', id), { status: newStatus });
       toast.success(`Appointment ${newStatus}`);
       fetchAppointments();
     } catch (error) {
       toast.error('Failed to update appointment');
+    } finally {
+      setSubmittingId(null);
     }
   };
 
@@ -120,11 +124,19 @@ const Appointments = () => {
                 <div className="flex flex-col gap-2 justify-center">
                   {apt.status === 'Pending' ? (
                     <>
-                      <button onClick={() => updateStatus(apt.id, 'Completed')} className="bg-secondary hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center transition-colors">
-                        <CheckCircle className="w-4 h-4 mr-1.5" /> Mark Completed
+                      <button 
+                        onClick={() => updateStatus(apt.id, 'Completed')} 
+                        disabled={submittingId === apt.id}
+                        className="bg-secondary hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {submittingId === apt.id ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1.5" />} Mark Completed
                       </button>
-                      <button onClick={() => updateStatus(apt.id, 'Cancelled')} className="bg-white border border-gray-200 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center transition-colors">
-                        <XCircle className="w-4 h-4 mr-1.5" /> Cancel
+                      <button 
+                        onClick={() => updateStatus(apt.id, 'Cancelled')} 
+                        disabled={submittingId === apt.id}
+                        className="bg-white border border-gray-200 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {submittingId === apt.id ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <XCircle className="w-4 h-4 mr-1.5" />} Cancel
                       </button>
                     </>
                   ) : (

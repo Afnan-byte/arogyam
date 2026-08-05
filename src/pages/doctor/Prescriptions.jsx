@@ -9,6 +9,7 @@ const Prescriptions = () => {
   const [showForm, setShowForm] = useState(false);
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const { currentUser } = useAuth();
 
   // Form state
@@ -54,6 +55,7 @@ const Prescriptions = () => {
     e.preventDefault();
     if (!patientName || !diagnosis) return toast.error('Please fill patient name and diagnosis');
 
+    setSubmitting(true);
     try {
       await addDoc(collection(db, 'prescriptions'), {
         doctorId: currentUser.uid,
@@ -72,12 +74,14 @@ const Prescriptions = () => {
       fetchPrescriptions();
     } catch (error) {
       toast.error('Failed to issue prescription');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Prescriptions & Tests</h1>
           <p className="text-gray-500 mt-1">Issue prescriptions and request blood tests for patients.</p>
@@ -134,8 +138,12 @@ const Prescriptions = () => {
             </div>
 
             <div className="flex justify-end pt-4 border-t border-gray-100">
-              <button type="submit" className="bg-secondary hover:bg-green-600 text-white px-6 py-2 rounded-lg text-sm font-medium flex items-center transition-colors">
-                <Save className="w-4 h-4 mr-2" /> Issue Prescription
+              <button 
+                type="submit" 
+                disabled={submitting || !patientName || !diagnosis}
+                className="bg-secondary hover:bg-green-600 text-white px-6 py-2 rounded-lg text-sm font-medium flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Issue Prescription
               </button>
             </div>
           </form>

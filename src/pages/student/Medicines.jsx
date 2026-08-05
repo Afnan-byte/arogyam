@@ -10,6 +10,7 @@ const Medicines = () => {
   const [prescriptions, setPrescriptions] = useState([]);
   const [deliveryRequests, setDeliveryRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submittingId, setSubmittingId] = useState(null);
   const { currentUser } = useAuth();
 
   useEffect(() => {
@@ -43,6 +44,7 @@ const Medicines = () => {
   };
 
   const requestDelivery = async (rxId) => {
+    setSubmittingId(rxId);
     try {
       await addDoc(collection(db, 'delivery_requests'), {
         studentId: currentUser.uid,
@@ -54,6 +56,8 @@ const Medicines = () => {
       fetchData();
     } catch (error) {
       toast.error('Failed to request delivery');
+    } finally {
+      setSubmittingId(null);
     }
   };
 
@@ -116,8 +120,12 @@ const Medicines = () => {
                 </div>
                 <div>
                   {!hasRequested ? (
-                    <button onClick={() => requestDelivery(rx.id)} className="w-full sm:w-auto bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center transition-colors">
-                      <Package className="h-4 w-4 mr-2" /> Request Delivery
+                    <button 
+                      onClick={() => requestDelivery(rx.id)} 
+                      disabled={submittingId === rx.id}
+                      className="w-full sm:w-auto bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {submittingId === rx.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Package className="h-4 w-4 mr-2" />} Request Delivery
                     </button>
                   ) : (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">

@@ -9,6 +9,7 @@ const Community = () => {
   const [showPostForm, setShowPostForm] = useState(false);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const { currentUser, userRole } = useAuth();
 
   // Form State
@@ -39,6 +40,7 @@ const Community = () => {
     e.preventDefault();
     if (!title || !content) return toast.error('Fill all fields');
 
+    setSubmitting(true);
     try {
       await addDoc(collection(db, 'community_posts'), {
         authorId: currentUser.uid,
@@ -58,6 +60,8 @@ const Community = () => {
       fetchPosts();
     } catch (error) {
       toast.error('Failed to publish post');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -97,7 +101,12 @@ const Community = () => {
               <textarea value={content} onChange={e=>setContent(e.target.value)} rows={4} placeholder="What's on your mind? Ask a question or share a tip..." className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary border p-3"></textarea>
             </div>
             <div className="flex justify-end">
-              <button type="submit" className="bg-primary hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">
+              <button 
+                type="submit" 
+                disabled={submitting || !title || !content}
+                className="bg-primary hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Publish
               </button>
             </div>

@@ -9,6 +9,7 @@ const Complaints = () => {
   const [showForm, setShowForm] = useState(false);
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const { currentUser } = useAuth();
 
   // Form State
@@ -47,6 +48,7 @@ const Complaints = () => {
     e.preventDefault();
     if (!category || !location || !description) return toast.error('Please fill all required fields');
     
+    setSubmitting(true);
     try {
       await addDoc(collection(db, 'complaints'), {
         studentId: currentUser.uid,
@@ -65,6 +67,8 @@ const Complaints = () => {
       fetchComplaints();
     } catch (error) {
       toast.error('Failed to submit complaint');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -78,7 +82,7 @@ const Complaints = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Complaint Register</h1>
           <p className="text-gray-500 mt-1">Report campus issues directly to administration.</p>
@@ -118,7 +122,12 @@ const Complaints = () => {
               </div>
             </div>
             <div className="flex justify-end pt-4 border-t border-gray-100">
-              <button type="submit" className="bg-accent hover:bg-yellow-600 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">
+              <button 
+                type="submit" 
+                disabled={submitting || !category || !location || !description}
+                className="bg-accent hover:bg-yellow-600 text-white px-6 py-2 rounded-lg text-sm font-medium flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Submit Complaint
               </button>
             </div>
