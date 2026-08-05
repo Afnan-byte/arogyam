@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { auth, db } from '../firebase/config';
 import { 
   onAuthStateChanged, 
@@ -17,10 +17,15 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
+  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
   const [loading, setLoading] = useState(true);
+  
+  // Use a ref to prevent onAuthStateChanged from doing duplicate Firestore fetches 
+  // when we are actively logging in or registering.
+  const isAuthActionInProgress = useRef(false);
 
   const login = async (email, password) => {
+    isAuthActionInProgress.current = true;
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
     let role = 'student';
@@ -28,10 +33,13 @@ export const AuthProvider = ({ children }) => {
       role = userDoc.data().role;
     }
     setUserRole(role);
+    localStorage.setItem('userRole', role);
+    isAuthActionInProgress.current = false;
     return role;
   };
 
   const register = async (email, password, role, name) => {
+    isAuthActionInProgress.current = true;
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
@@ -45,11 +53,14 @@ export const AuthProvider = ({ children }) => {
     });
     
     setUserRole(role);
+    localStorage.setItem('userRole', role);
+    isAuthActionInProgress.current = false;
     return userCredential;
   };
 
-  const logout = () => {
-    return signOut(auth);
+  const logout = async () => {
+    localStorage.removeItem('userRole');
+    await signOut(auth);
   };
 
   const resetPassword = (email) => {
@@ -59,21 +70,26 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Fetch user role from Firestore
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            setUserRole(userDoc.data().role);
-          } else {
-            console.error("No such user document!");
-            setUserRole('student'); // Fallback or handle error
+        // If we are already handling this via login/register, skip duplicate fetch
+        if (!isAuthActionInProgress.current) {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              const role = userDoc.data().role;
+              setUserRole(role);
+              localStorage.setItem('userRole', role);
+            } else {
+              setUserRole('student');
+              localStorage.setItem('userRole', 'student');
+            }
+          } catch (error) {
+            console.error("Error fetching user role:", error);
+            // Keep existing cached role if network fails
           }
-        } catch (error) {
-          console.error("Error fetching user role:", error);
-          setUserRole(null);
         }
       } else {
         setUserRole(null);
+        localStorage.removeItem('userRole');
       }
       setCurrentUser(user);
       setLoading(false);
