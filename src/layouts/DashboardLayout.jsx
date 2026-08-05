@@ -93,7 +93,7 @@ const DashboardLayout = ({ role }) => {
           {/* Sidebar Header */}
           <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
             <Link to={`/${role}`} className="flex items-center gap-2">
-              <HeartPulse className="h-8 w-8 text-primary" />
+              <img src="/logo.jpeg" alt="Arogyam Logo" className="h-10 w-auto object-contain rounded-lg shadow-sm" />
               <span className="font-bold text-2xl text-gray-900 tracking-tight">Arogya</span>
             </Link>
             <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-500 hover:text-gray-900">

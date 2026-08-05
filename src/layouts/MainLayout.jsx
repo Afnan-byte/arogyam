@@ -13,7 +13,7 @@ const MainLayout = () => {
           <div className="flex justify-between h-16">
             <div className="flex">
               <Link to="/" className="flex-shrink-0 flex items-center gap-2">
-                <HeartPulse className="h-8 w-8 text-primary" />
+                <img src="/logo.jpeg" alt="Arogyam Logo" className="h-10 w-auto object-contain rounded-lg shadow-sm" />
                 <span className="font-bold text-2xl text-gray-900 tracking-tight">Arogya</span>
               </Link>
             </div>
