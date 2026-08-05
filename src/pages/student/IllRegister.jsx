@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { PlusCircle, FileText, Upload, Clock, CheckCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { PlusCircle, FileText, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { db } from '../../firebase/config';
 import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
@@ -19,13 +19,8 @@ const IllRegister = () => {
 
   const availableSymptoms = ['Fever', 'Cough', 'Headache', 'Stomach ache', 'Body pain', 'Vomiting'];
 
-  useEffect(() => {
-    if (currentUser) {
-      fetchReports();
-    }
-  }, [currentUser]);
-
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
+    if (!currentUser) return;
     setLoading(true);
     try {
       const q = query(collection(db, 'illness_reports'), where('studentId', '==', currentUser.uid));
@@ -40,7 +35,11 @@ const IllRegister = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
 
   const handleSymptomToggle = (symp) => {
     if (symptoms.includes(symp)) {
@@ -73,6 +72,7 @@ const IllRegister = () => {
       setDetails('');
       fetchReports();
     } catch (error) {
+      console.error(error);
       toast.error('Failed to submit report');
     } finally {
       setSubmitting(false);

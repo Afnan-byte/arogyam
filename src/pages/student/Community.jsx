@@ -59,6 +59,7 @@ const Community = () => {
       setContent('');
       fetchPosts();
     } catch (error) {
+      console.error(error);
       toast.error('Failed to publish post');
     } finally {
       setSubmitting(false);
